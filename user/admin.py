@@ -1,36 +1,11 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from user.models import User
-
+from .models import User, OTP
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
-    model = User
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'username', 'phone', 'campaign_code')
 
-    list_display = (
-        'id',
-        'user_id',
-        'username',
-        'phone',
-        'is_active',
-        'is_staff',
-    )
 
-    list_filter = ('is_active', 'is_staff')
-
-    search_fields = ('username', 'phone')
-
-    ordering = ('-id',)
-
-    fieldsets = (
-        (None, {'fields': ('username', 'phone', 'password')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
-        ('Important dates', {'fields': ('last_login',)}),
-    )
-
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('username', 'phone', 'password1', 'password2', 'is_staff', 'is_superuser'),
-        }),
-    )
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ('phone', 'otp', 'is_verified', 'expires_at')

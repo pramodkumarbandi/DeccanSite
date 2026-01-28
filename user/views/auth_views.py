@@ -1,111 +1,94 @@
-from rest_framework.views import APIView
+import random
+from datetime import timedelta
+from django.utils import timezone
+from django.contrib.auth.hashers import make_password
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
-from user.serializers.login_serializer import LoginSerializer
-from user.serializers.signup_serializer import SignupSerializer
-from user.utils import generate_otp
-from user.models import User
-from user.serializers.signup_serializer import SendOTPSerializer, VerifyOTPSerializer, SignupSerializer
+
+from ..models import User, OTP
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_otp(request):
+    phone = request.data.get('phone')
 
-# class LoginView(APIView):
-#     authentication_classes = []
-#     permission_classes = []
-#     def post(self, request):
-#         serializer = LoginSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.validated_data
+    if not phone:
+        return Response({"error": "Phone number required"}, status=400)
 
-#         refresh = RefreshToken.for_user(user)
+    otp = str(random.randint(100000, 999999))
+    expiry = timezone.now() + timedelta(minutes=5)
 
-#         return Response({
-#             "user_id": user.user_id,
-#             "username": user.username,
-#             "access": str(refresh.access_token),
-#             "refresh": str(refresh)
-#         }, status=status.HTTP_200_OK)
-    
+    OTP.objects.filter(phone=phone).delete()
+    OTP.objects.create(phone=phone, otp=otp, expires_at=expiry)
 
+    print("OTP:", otp)
 
-class LoginView(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        #extract actual user object
-        user = serializer.validated_data["user"]
-
-        refresh = RefreshToken.for_user(user)
-
-        return Response({
-            "user_id": str(user.user_id),
-            "username": user.username,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh)
-        })
+    return Response({"message": "OTP sent successfully"})
 
 
-class SendOTPView(APIView):
-    authentication_classes = []
-    permission_classes = []
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    phone = request.data.get('phone')
+    otp = request.data.get('otp')
 
-    def post(self, request):
-        serializer = SendOTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        phone = serializer.validated_data['phone']
+    otp_obj = OTP.objects.filter(phone=phone).first()
 
-        user = User.objects.filter(phone=phone).first()
-        if not user:
-            # create inactive user to store OTP
-            user = User.objects.create_user(username=f"user_{phone}", phone=phone, password="temporarypass")
-            user.is_active = False
-            user.save()
+    if not otp_obj:
+        return Response({"error": "OTP not found"}, status=400)
 
-        otp = generate_otp()
-        user.set_otp(otp)
+    if otp_obj.is_expired():
+        otp_obj.delete()
+        return Response({"error": "OTP expired"}, status=400)
 
-        # TODO: integrate real SMS sending here
-        print(f"Send OTP {otp} to phone {phone}")
+    if otp_obj.otp != otp:
+        return Response({"error": "Invalid OTP"}, status=400)
 
-        return Response({"message": f"OTP sent to {phone}"}, status=status.HTTP_200_OK)
+    otp_obj.is_verified = True
+    otp_obj.save()
 
-class VerifyOTPView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    return Response({"message": "OTP verified successfully"})
 
-    def post(self, request):
-        serializer = VerifyOTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
 
-        phone = serializer.validated_data['phone']
-        otp = serializer.validated_data['otp']
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    phone = request.data.get('phone')
+    username = request.data.get('username')
+    password = request.data.get('password')
+    confirm_password = request.data.get('confirm_password')
+    campaign_code = request.data.get('campaign_code')
 
-        user = User.objects.filter(phone=phone).first()
-        if not user:
-            return Response({"error": "User not found"}, status=status.HTTP_400_BAD_REQUEST)
+    if password != confirm_password:
+        return Response({"error": "Passwords do not match"}, status=400)
 
-        if user.verify_otp(otp):
-            return Response({"message": "Phone verified successfully"}, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+    otp_obj = OTP.objects.filter(phone=phone, is_verified=True).first()
+    if not otp_obj:
+        return Response({"error": "OTP not verified"}, status=400)
 
-class SignupView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    user = User.objects.filter(phone=phone).first()
 
-    def post(self, request):
-        serializer = SignupSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response({
-            "user_id": str(user.user_id),
-            "username": user.username,
-            "phone": user.phone,
-            "campaign_code": user.campaign_code
-        }, status=status.HTTP_201_CREATED)
-    
+    if user and user.has_usable_password():
+        return Response(
+            {"error": "This phone number is already registered. Please login."},
+            status=400
+        )
+
+    if user and not user.has_usable_password():
+        user.username = username
+        user.password = make_password(password)
+        user.campaign_code = campaign_code
+        user.save()
+        return Response({"message": "Registration completed successfully"}, status=200)
+
+    User.objects.create(
+        phone=phone,
+        username=username,
+        password=make_password(password),
+        campaign_code=campaign_code
+    )
+
+    return Response({"message": "User registered successfully"}, status=201)
