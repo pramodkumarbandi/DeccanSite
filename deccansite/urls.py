@@ -24,10 +24,10 @@ urlpatterns = [
 
 ]
 
-##PAYMENT DETAILS##
+# ##PAYMENT DETAILS##
 
-urlpatterns = [
-    path("api/token/", TokenObtainPairView.as_view()),
-    path("api/token/refresh/", TokenRefreshView.as_view()),
-    path("api/payments/", include("payments.urls")),
-]
+# urlpatterns = [
+#     path("api/token/", TokenObtainPairView.as_view()),
+#     path("api/token/refresh/", TokenRefreshView.as_view()),
+#     path("api/payments/", include("payments.urls")),
+# ]
