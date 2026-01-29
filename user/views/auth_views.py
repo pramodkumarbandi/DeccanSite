@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from ..models import User, OTP
 
 from ..serializers.signup_serializer import RegisterSerializer
-from user.utils import validate_phone
+from ..utils import validate_phone
+from django.contrib.auth.hashers import make_password 
 
 
 @api_view(['POST'])
