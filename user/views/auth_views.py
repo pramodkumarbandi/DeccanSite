@@ -1,14 +1,14 @@
 import random
 from datetime import timedelta
 from django.utils import timezone
-from django.contrib.auth.hashers import make_password
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from ..models import User, OTP
-from ..serializers.signup_serializer import RegisterSerializer   # ✅ (1) ADD THIS
+from ..serializers.signup_serializer import RegisterSerializer
+from user.utils import validate_phone
 
 
 @api_view(['POST'])
@@ -16,8 +16,9 @@ from ..serializers.signup_serializer import RegisterSerializer   # ✅ (1) ADD T
 def send_otp(request):
     phone = request.data.get('phone')
 
-    if not phone:
-        return Response({"error": "Phone number required"}, status=400)
+    is_valid, msg = validate_phone(phone)
+    if not is_valid:
+        return Response({"error": msg}, status=400)
 
     otp = str(random.randint(100000, 999999))
     expiry = timezone.now() + timedelta(minutes=5)
@@ -34,8 +35,9 @@ def send_otp(request):
 def resend_otp(request):
     phone = request.data.get('phone')
 
-    if not phone:
-        return Response({"error": "Phone number required"}, status=400)
+    is_valid, msg = validate_phone(phone)
+    if not is_valid:
+        return Response({"error": msg}, status=400)
 
     OTP.objects.filter(phone=phone).delete()
 
@@ -53,6 +55,10 @@ def resend_otp(request):
 def verify_otp(request):
     phone = request.data.get('phone')
     otp = request.data.get('otp')
+
+    is_valid, msg = validate_phone(phone)
+    if not is_valid:
+        return Response({"error": msg}, status=400)
 
     otp_obj = OTP.objects.filter(phone=phone).first()
 
@@ -77,7 +83,10 @@ def verify_otp(request):
 def register(request):
     phone = request.data.get('phone')
 
-    # 🔹 (2) OTP verification unchanged
+    is_valid, msg = validate_phone(phone)
+    if not is_valid:
+        return Response({"error": msg}, status=400)
+
     otp_obj = OTP.objects.filter(phone=phone, is_verified=True).first()
     if not otp_obj:
         return Response({"error": "OTP not verified"}, status=400)
@@ -90,12 +99,10 @@ def register(request):
             status=400
         )
 
-    # 🔥 (3) SERIALIZER VALIDATION ADDED
     serializer = RegisterSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
 
-    # 🔹 (4) User exists but password not set (OTP signup flow)
     if user and not user.has_usable_password():
         user.username = serializer.validated_data['username']
         user.set_password(serializer.validated_data['password'])
@@ -103,6 +110,5 @@ def register(request):
         user.save()
         return Response({"message": "Registration completed successfully"}, status=200)
 
-    # 🔹 (5) New user creation (serializer handles password validation + hashing)
     serializer.save()
     return Response({"message": "User registered successfully"}, status=201)

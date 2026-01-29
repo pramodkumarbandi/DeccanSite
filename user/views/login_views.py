@@ -4,23 +4,20 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from ..models import User
+from user.utils import validate_phone
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
-    login_type = request.data.get("login_type", "normal")  #  ADD
-    identifier = request.data.get("identifier")            # username or phone
+    login_type = request.data.get("login_type", "normal")
+    identifier = request.data.get("identifier")
     password = request.data.get("password")
 
-    # DEMO LOGIN FLOW
     if login_type == "demo":
         demo_user = User.objects.filter(username="demo_user").first()
         if not demo_user:
-            return Response(
-                {"error": "Demo user not configured"},
-                status=400
-            )
+            return Response({"error": "Demo user not configured"}, status=400)
 
         refresh = RefreshToken.for_user(demo_user)
         return Response({
@@ -30,14 +27,15 @@ def login(request):
             "access": str(refresh.access_token)
         }, status=200)
 
-    # NORMAL LOGIN (your existing logic – unchanged)
     if not identifier or not password:
-        return Response(
-            {"error": "Username/Phone and password are required"},
-            status=400
-        )
+        return Response({"error": "Username/Phone and password are required"}, status=400)
 
-    # check by phone OR username
+    # if identifier is phone → validate
+    if identifier.isdigit():
+        is_valid, msg = validate_phone(identifier)
+        if not is_valid:
+            return Response({"error": msg}, status=400)
+
     user = User.objects.filter(phone=identifier).first() or \
            User.objects.filter(username=identifier).first()
 
@@ -47,7 +45,6 @@ def login(request):
     if not user.check_password(password):
         return Response({"error": "Invalid password"}, status=400)
 
-    # generate JWT
     refresh = RefreshToken.for_user(user)
 
     return Response({

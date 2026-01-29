@@ -12,10 +12,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True},
             'campaign_code': {'required': False},
-            'phone': {'validators': []}  # remove auto unique validation
+            'phone': {'validators': []}
         }
 
-    # 🔹 USERNAME VALIDATION
+    def validate_phone(self, value):
+        if not re.fullmatch(r'[6-9]\d{9}', value):
+            raise serializers.ValidationError("Enter valid 10 digit mobile number")
+
+        if User.objects.filter(phone=value).exists():
+            raise serializers.ValidationError("Phone number already registered")
+
+        return value
+
     def validate_username(self, value):
         if not re.fullmatch(r'^[a-zA-Z0-9_]{4,30}$', value):
             raise serializers.ValidationError(
@@ -27,7 +35,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return value
 
-    # 🔹 PASSWORD VALIDATION
     def validate_password(self, value):
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters")
@@ -41,12 +48,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not re.search(r'[0-9]', value):
             raise serializers.ValidationError("Password must contain 1 number")
 
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+        if not re.search(r'[!@#$%^&*(),.?\":{}|<>]', value):
             raise serializers.ValidationError("Password must contain 1 special character")
 
         return value
 
-    # 🔹 CONFIRM PASSWORD CHECK
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError({
@@ -54,7 +60,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             })
         return data
 
-    # 🔹 CREATE USER (SAFE 🔐)
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
