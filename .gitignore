@@ -5,7 +5,11 @@ env/
 # python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
+# Django
+db.sqlite3
 # vs code
 .vscode/
 
