@@ -9,9 +9,28 @@ from ..models import User
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
-    identifier = request.data.get("identifier")  # username or phone
+    login_type = request.data.get("login_type", "normal")  #  ADD
+    identifier = request.data.get("identifier")            # username or phone
     password = request.data.get("password")
 
+    # DEMO LOGIN FLOW
+    if login_type == "demo":
+        demo_user = User.objects.filter(username="demo_user").first()
+        if not demo_user:
+            return Response(
+                {"error": "Demo user not configured"},
+                status=400
+            )
+
+        refresh = RefreshToken.for_user(demo_user)
+        return Response({
+            "message": "Demo login successful",
+            "user_type": "demo",
+            "refresh": str(refresh),
+            "access": str(refresh.access_token)
+        }, status=200)
+
+    # NORMAL LOGIN (your existing logic – unchanged)
     if not identifier or not password:
         return Response(
             {"error": "Username/Phone and password are required"},
@@ -33,6 +52,7 @@ def login(request):
 
     return Response({
         "message": "Login successful",
+        "user_type": "normal",
         "refresh": str(refresh),
         "access": str(refresh.access_token)
     }, status=200)
