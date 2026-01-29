@@ -1,19 +1,16 @@
-# Virtual Environment
-venv/
-env/
-
-# python cache
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# vs code
-.vscode/
-
-# OS files
-.DS_Store
-
-
+# Virtual env
+venv/
 .env
 
+# Django
+db.sqlite3
+media/
 
-
+# OS
+.DS_Store

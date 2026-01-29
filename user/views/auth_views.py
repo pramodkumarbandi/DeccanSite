@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from ..models import User, OTP
+
 from ..serializers.signup_serializer import RegisterSerializer
 from user.utils import validate_phone
 
@@ -27,11 +28,13 @@ def send_otp(request):
     OTP.objects.create(phone=phone, otp=otp, expires_at=expiry)
 
     print("OTP:", otp)
+
     return Response({"message": "OTP sent successfully"})
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+
 def resend_otp(request):
     phone = request.data.get('phone')
 
@@ -82,10 +85,19 @@ def verify_otp(request):
 @permission_classes([AllowAny])
 def register(request):
     phone = request.data.get('phone')
+    username = request.data.get('username')
+    password = request.data.get('password')
+    confirm_password = request.data.get('confirm_password')
+    campaign_code = request.data.get('campaign_code')
+
+    if password != confirm_password:
+        return Response({"error": "Passwords do not match"}, status=400)
+
 
     is_valid, msg = validate_phone(phone)
     if not is_valid:
         return Response({"error": msg}, status=400)
+
 
     otp_obj = OTP.objects.filter(phone=phone, is_verified=True).first()
     if not otp_obj:
@@ -99,16 +111,18 @@ def register(request):
             status=400
         )
 
-    serializer = RegisterSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=400)
-
     if user and not user.has_usable_password():
-        user.username = serializer.validated_data['username']
-        user.set_password(serializer.validated_data['password'])
-        user.campaign_code = serializer.validated_data.get('campaign_code')
+        user.username = username
+        user.password = make_password(password)
+        user.campaign_code = campaign_code
         user.save()
         return Response({"message": "Registration completed successfully"}, status=200)
 
-    serializer.save()
+    User.objects.create(
+        phone=phone,
+        username=username,
+        password=make_password(password),
+        campaign_code=campaign_code
+    )
+
     return Response({"message": "User registered successfully"}, status=201)

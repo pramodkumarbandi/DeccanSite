@@ -10,6 +10,7 @@ from user.utils import validate_phone
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
+
     login_type = request.data.get("login_type", "normal")
     identifier = request.data.get("identifier")
     password = request.data.get("password")
@@ -26,6 +27,9 @@ def login(request):
             "refresh": str(refresh),
             "access": str(refresh.access_token)
         }, status=200)
+
+    identifier = request.data.get("identifier")  # username or phone
+    password = request.data.get("password")
 
     if not identifier or not password:
         return Response({"error": "Username/Phone and password are required"}, status=400)
@@ -49,7 +53,6 @@ def login(request):
 
     return Response({
         "message": "Login successful",
-        "user_type": "normal",
         "refresh": str(refresh),
         "access": str(refresh.access_token)
     }, status=200)

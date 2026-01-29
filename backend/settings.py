@@ -49,12 +49,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'user',
     'rest_framework_simplejwt.token_blacklist',
-    'corsheaders',
 ]
 
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -63,8 +61,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-CORS_ALLOW_ALL_ORIGINS = True
-
 
 RAZORPAY_KEY = os.getenv("RAZORPAY_KEY")
 RAZORPAY_SECRET = os.getenv("RAZORPAY_SECRET")
