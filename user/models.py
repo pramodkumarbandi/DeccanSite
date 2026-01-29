@@ -17,3 +17,7 @@ class OTP(models.Model):
 
     def is_expired(self):
         return timezone.now() > self.expires_at
+
+
+    def __str__(self):
+        return f"{self.user.username} - {self.otp}"

@@ -8,4 +8,4 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(OTP)
 class OTPAdmin(admin.ModelAdmin):
-    list_display = ('phone', 'otp', 'is_verified', 'expires_at')
+    list_display = ('phone', 'otp', 'is_verified', 'expires_at', 'created_at')
